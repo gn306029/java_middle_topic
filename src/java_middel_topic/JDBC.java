@@ -12,12 +12,12 @@ public class JDBC {
     Statement statement;
     Connection conn = null;
 
-    public boolean insertAccount(String account, String password,int port,String last_login) { //新增使用者
+    public boolean insertAccount(String account, String password, int port, String last_login) { //新增使用者
 
         boolean state_num = false; //狀態碼 true = 帳號無重複 , false = 帳號重複
         if (checkAccount(account)) {
             //無帳號重複
-            String sql = "INSERT INTO `bbs_client`(`bbs_client_id`, `bbs_client_account`, `bbs_client_password`,`bbs_client_port`,`bbs_client_last_login`) VALUES (null,'" + account + "','" + password + "','"+port+"','"+last_login+"')";
+            String sql = "INSERT INTO `bbs_client`(`bbs_client_id`, `bbs_client_account`, `bbs_client_password`,`bbs_client_port`,`bbs_client_last_login`) VALUES (null,'" + account + "','" + password + "','" + port + "','" + last_login + "')";
             try {
                 sqlConnection();
                 this.statement.executeUpdate(sql);
@@ -79,10 +79,13 @@ public class JDBC {
             } else {
                 isAccount = false;
             }
+            statement.close();
+            conn.close();
         } catch (Exception e) {
             System.out.println(e + " in JDBC.Java line 65");
             isAccount = false;
         }
+
         return isAccount;
     }
 
@@ -103,11 +106,35 @@ public class JDBC {
                 boardcontent.setcontent(rs.getString(4));
                 articale_list.add(boardcontent);
             }
-
+            statement.close();
+            conn.close();
         } catch (Exception e) {
             System.out.println(e);
         }
         return articale_list;
+    }
+
+    //因為加了換行符號不知為何會影響到取遊戲資料時的回傳值，為了避免影相到其他使用原本 SearchSQL 函式的功能
+    //所以直接寫一個新的函式給遊戲用
+    public String Get_Game_Account_Detail(String sql) {
+        sqlConnection();
+        String result = "";
+        try {
+            ResultSet rs = this.statement.executeQuery(sql);
+            while (rs.next()) {
+                for (int i = 1; i <= rs.getMetaData().getColumnCount(); i++) {
+                    if (i > 1) {
+                        result += "\t";
+                    }
+                    result += rs.getString(i);
+                }
+            }
+            statement.close();
+            conn.close();
+        } catch (Exception e) {
+            System.out.println(e + " in JDBC.java SearchSql");
+        }
+        return result;
     }
 
     //除了 Search 之外的 SQL
@@ -116,6 +143,8 @@ public class JDBC {
         sqlConnection();
         try {
             state = this.statement.executeUpdate(sql);
+            statement.close();
+            conn.close();
         } catch (Exception e) {
             System.out.println(e + " in JDBC.java OtherSql");
         }
@@ -128,17 +157,19 @@ public class JDBC {
         String result = "";
         try {
             ResultSet rs = this.statement.executeQuery(sql);
-            while(rs.next()){
-                for(int i =1;i<=rs.getMetaData().getColumnCount();i++){
-                    if(i>1){
+            while (rs.next()) {
+                for (int i = 1; i <= rs.getMetaData().getColumnCount(); i++) {
+                    if (i > 1) {
                         result += "\t";
                     }
                     result += rs.getString(i);
                 }
                 result += "\r\n";
             }
+            statement.close();
+            conn.close();
         } catch (Exception e) {
-            System.out.println(e + " in JDBC.java OtherSql_2");
+            System.out.println(e + " in JDBC.java SearchSql");
         }
         return result;
     }

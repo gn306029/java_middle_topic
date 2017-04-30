@@ -12,6 +12,7 @@ public class BBS_Client extends Thread {
     private PrintWriter out;
     private JDBC jdbc = new JDBC();
     static Vector lubby_1 = new Vector();
+    static Game game[] = new Game[2];
     private Gossiping gossiping;
     private String useraccount;
     private boolean isguest;
@@ -56,7 +57,6 @@ public class BBS_Client extends Thread {
                         if (state_num) {
                             //帳號建立成功
                             //建立成功後跳轉到看板 (未完成)
-                            System.out.println("ok");
                             break Login;
                         } else {
                             //帳號重複，建立失敗
@@ -114,79 +114,129 @@ public class BBS_Client extends Thread {
                     //八卦版迴圈
                     Gossiping_loop:
                     while (!(G_Command = in.readLine()).equalsIgnoreCase("/exit")) {
-                        if (G_Command.substring(0, 2).equalsIgnoreCase("/s")) {
-                            gossiping.ScaneerArticaleByID(G_Command.substring(2), this.out);
-                        } else if (G_Command.equalsIgnoreCase("/P")) {
-                            this.out.println("If you want cancel publish");
-                            this.out.println("You can input /exit to do it");
-                            this.out.flush();
-                            String article_content = "";
-                            String article_title;
-                            //輸入標題
-                            while (true) {
-                                this.out.print("Input your article title : ");
+                        try {
+                            if (G_Command.substring(0, 2).equalsIgnoreCase("/s")) {
+                                gossiping.ScaneerArticaleByID(G_Command.substring(2), this.out);
+                            } else if (G_Command.equalsIgnoreCase("/P") && !isguest) {
+                                this.out.println("If you want cancel publish");
+                                this.out.println("You can input /exit to do it");
                                 this.out.flush();
-                                article_title = in.readLine();
-                                if (article_title.equalsIgnoreCase("/exit")) {
-                                    continue Gossiping_loop;
-                                }
-                                this.out.print("This title ok ? ");
-                                this.out.flush();
-                                String answer = in.readLine();
-                                if (answer.equalsIgnoreCase("OK")) {
-                                    break;
-                                }
-                            }
-                            //輸入文章內容
-                            //尚未處理 SQL Injection
-                            while (true) {
-                                this.out.println("Input your article content");
-                                this.out.println("If complete,Please input /wq to exit edit mode");
-                                this.out.flush();
-                                String inputcontent;
-                                while (!(inputcontent = in.readLine()).equalsIgnoreCase("/wq")) {
-                                    if (inputcontent.equalsIgnoreCase(line)) {
+                                String article_content = "";
+                                String article_title;
+                                //輸入標題
+                                while (true) {
+                                    this.out.print("Input your article title : ");
+                                    this.out.flush();
+                                    article_title = in.readLine();
+                                    if (article_title.equalsIgnoreCase("/exit")) {
                                         continue Gossiping_loop;
                                     }
-                                    article_content += inputcontent;
+                                    this.out.print("This title ok ? ");
+                                    this.out.flush();
+                                    String answer = in.readLine();
+                                    if (answer.equalsIgnoreCase("OK")) {
+                                        break;
+                                    }
                                 }
-                                this.out.print("This content ok ? ");
+                                //輸入文章內容
+                                //尚未處理 SQL Injection
+                                while (true) {
+                                    this.out.println("Input your article content");
+                                    this.out.println("If complete,Please input /wq to exit edit mode");
+                                    this.out.flush();
+                                    String inputcontent;
+                                    while (!(inputcontent = in.readLine()).equalsIgnoreCase("/wq")) {
+                                        if (inputcontent.equalsIgnoreCase(line)) {
+                                            continue Gossiping_loop;
+                                        }
+                                        article_content += inputcontent;
+                                    }
+                                    this.out.print("This content ok ? ");
+                                    this.out.flush();
+                                    String answer = in.readLine();
+                                    if (answer.equalsIgnoreCase("OK")) {
+                                        gossiping.InsertArticale(this.useraccount, article_title, article_content, this.out);
+                                        gossiping.ShowArticaleList(this.out);
+                                        break;
+                                    }
+                                }
+                            } else if (G_Command.equalsIgnoreCase("/Delete") && !isguest) {
+                                this.out.print("Input your want to delete the article ID : ");
+                                this.out.flush();
+                                String article_id = in.readLine();
+                                this.out.print("determine ? ");
                                 this.out.flush();
                                 String answer = in.readLine();
                                 if (answer.equalsIgnoreCase("OK")) {
-                                    gossiping.InsertArticale(this.useraccount, article_title, article_content, this.out);
+                                    gossiping.DeleteArticle(article_id, this.useraccount, this.out);
                                     gossiping.ShowArticaleList(this.out);
-                                    break;
+                                } else {
+                                    continue Gossiping_loop;
                                 }
-                            }
-                        } else if (G_Command.equalsIgnoreCase("/Delete")) {
-                            this.out.print("Input your want to delete the article ID : ");
-                            this.out.flush();
-                            String article_id = in.readLine();
-                            this.out.print("determine ? ");
-                            this.out.flush();
-                            String answer = in.readLine();
-                            if (answer.equalsIgnoreCase("OK")) {
-                                gossiping.DeleteArticle(article_id, this.useraccount, this.out);
-                                gossiping.ShowArticaleList(this.out);
                             } else {
-                                continue Gossiping_loop;
+                                this.out.println("You are not allowed to use this feature");
+                                this.out.flush();
                             }
+                        } catch (Exception e) {
+                            System.out.println(e + " in Gussiping_Loop");
                         }
                         this.out.print("Input command : ");
                         this.out.flush();
                     }
-                }else if(line.equalsIgnoreCase("fat nerd")){ //輸入肥宅會因為油脂過多,身體受不了爆炸而亡
-                    if(jdbc.OtherSql("Delete From `bbs_client` Where `bbs_client_account` = '"+this.useraccount+"'")==1){
+                } else if (line.equalsIgnoreCase("/Open_Game")) {
+                    if (!isguest) {
+                        BBS_Client Back[] = new BBS_Client[2];
+                        if (game[0] == null) {
+                            game[0] = new Game(this.incoming, this.in, this.out, 1, this);
+                            lubby_1.remove(this);
+                            Back = game[0].GameStart(this.useraccount);
+                            try {
+                                lubby_1.add(Back[0]);
+                                lubby_1.add(Back[1]);
+                                game[0] = null;
+                                game[1] = null;
+                            } catch (ArrayIndexOutOfBoundsException ae) {
+
+                            }
+                        } else if (game[1] == null) {
+                            game[1] = new Game(this.incoming, this.in, this.out, 2, this);
+                            lubby_1.remove(this);
+                            Back = game[1].GameStart(this.useraccount);
+                            try {
+                                lubby_1.add(Back[0]);
+                                lubby_1.add(Back[1]);
+                                game[0] = null;
+                                game[1] = null;
+                            } catch (ArrayIndexOutOfBoundsException ae) {
+
+                            }
+                        } else {
+                            this.out.print("Game room is full , please waitting\r\n");
+                            this.out.flush();
+                        }
+                    } else {
+                        this.out.println("You are not allowed to use this feature");
+                        this.out.flush();
+                    }
+                } else if (line.equalsIgnoreCase("fat nerd")) { //輸入肥宅會因為油脂過多,身體受不了爆炸而亡
+                    if (jdbc.OtherSql("Delete From `bbs_client` Where `bbs_client_account` = '" + this.useraccount + "'") == 1) {
                         this.out.print("You!! Get out now!! Fucking fat nerd");
                         this.in.close();
                         this.out.close();
                         this.incoming.close();
                     }
+                } else {
+                    for (int i = 0; i < lubby_1.size(); i++) {
+                        BBS_Client bbs_client = (BBS_Client) lubby_1.elementAt(i);
+                        if (bbs_client != this) {
+                            bbs_client.out.println(line);
+                            bbs_client.out.flush();
+                        }
+                    }
                 }
             }
 
-        } catch (Exception e) {
+        } catch (IOException e) {
             System.out.println(e + " in BBS_Client.java line 82");
         }
     }
@@ -206,9 +256,4 @@ public class BBS_Client extends Thread {
         this.out.print("Please input Your account : ");
         this.out.flush();
     }
-
-    public Socket getincoming() {
-        return this.incoming;
-    }
-
 }
